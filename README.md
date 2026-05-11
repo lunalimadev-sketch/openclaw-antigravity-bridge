@@ -329,4 +329,4 @@ MIT — Use por sua conta e risco.
 
 ---
 
-*Feito com 🦉 por Luna para Taís*
+*Feito com 🦉 por Luna e dr. Roger (@rog3r)*
