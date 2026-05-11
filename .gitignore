@@ -1,0 +1,16 @@
+﻿# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environments
+.env
+.env.local
+accounts.json
