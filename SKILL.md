@@ -1,106 +1,75 @@
 ---
 name: antigravity-bridge
 description: >
-  Delega tarefas de programação complexas para o Antigravity IDE (Gemini / Claude Sonnet)
-  e retorna a resposta diretamente para o agente OpenClaw via API REST.
-  Também gerencia contas Google do proxy antigravity-claude-proxy.
+  Bridge entre OpenClaw Gateway e o proxy antigravity-claude-proxy.
+  Instalação, configuração e gerenciamento de contas Google para acesso
+  aos modelos Claude Opus 4.6, Sonnet 4.6 e Gemini 3.1 Pro via cota Google.
 status: READY
 trigger: >
-  Ative esta skill quando precisar de código avançado, refatoração profunda,
-  gerenciar contas do proxy Antigravity, ou contexto grande demais para o modelo local.
+  Use esta skill para configurar, gerenciar contas, ou diagnosticar
+  problemas com o proxy Antigravity.
 ---
 
 # Skill: Antigravity Bridge
 
-Bridge entre OpenClaw Gateway e Google Antigravity (Claude, Gemini).
+Bridge entre OpenClaw Gateway e Google Antigravity via `antigravity-claude-proxy` (porta 8080).
 
-## Arquitetura
-
-```
-OpenClaw Gateway ──▶ antigravity-claude-proxy (:8080) ──▶ Google Antigravity
-                           │
-                   ┌───────┴───────┐
-                   │  Account Pool │  ← gerenciado por manage-accounts.ps1
-                   └───────────────┘
-```
-
-## Gerenciamento de Contas
-
-Use `manage-accounts.ps1` para administrar as contas Google do proxy:
+## Setup Completo (instalação nova)
 
 ```powershell
-# Listar contas e status
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/manage-accounts.ps1 list
-
-# Verificar saúde de todas as contas
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/manage-accounts.ps1 health
-
-# Ver configuração do proxy
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/manage-accounts.ps1 config
-
-# Status geral do proxy
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/manage-accounts.ps1 status
-
-# Adicionar nova conta (abre navegador para OAuth)
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/manage-accounts.ps1 add
-
-# Remover conta
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/manage-accounts.ps1 remove
-
-# Trocar estratégia de balanceamento (hybrid|sticky|round-robin)
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/manage-accounts.ps1 strategy sticky
-
-# Reiniciar proxy
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/manage-accounts.ps1 restart
+powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/setup.ps1
 ```
 
-## Dashboard
+O script verifica Node.js, instala o proxy globalmente, inicia o serviço e guia na configuração da primeira conta.
 
-Gere um dashboard HTML local com status visual:
+## Comandos do Proxy
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/dashboard.ps1
+acc status              # Status do proxy
+acc start               # Iniciar (serviço de fundo)
+acc start --log         # Iniciar com logs
+acc stop                # Parar
+acc restart             # Reiniciar
+acc ui                  # Dashboard web
 ```
 
-## Delegar Código para o Antigravity IDE
-
-Para enviar tarefas complexas de programação ao Antigravity (Gemini/Claude):
+## Gerenciar Contas
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/bidirectional.ps1 -Prompt "<seu prompt>"
+acc accounts list           # Listar contas
+acc accounts add            # Adicionar (abre navegador)
+acc accounts add --no-browser  # Adicionar (headless)
+acc accounts remove <email> # Remover
+acc accounts verify         # Verificar saúde
 ```
 
-### Fluxo
-1. Script injeta o prompt no Antigravity IDE via `agy chat --reuse-window`
-2. Aguarda a resposta ser gerada
-3. Captura via clipboard (Ctrl+A, Ctrl+C)
-4. Posta a resposta na API REST do OpenClaw (porta 18789)
+## Estratégias de Balanceamento
+
+```powershell
+acc start --strategy=hybrid       # (padrão) health score + tempo ocioso
+acc start --strategy=sticky       # Consistência de sessão
+acc start --strategy=round-robin  # Alternância igual
+```
 
 ## Importar Contas do OpenCode
-
-Se já tem contas no `opencode-antigravity-auth`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File skills/antigravity/scripts/import-opencode-accounts.ps1
 ```
 
-## Comandos Rápidos do Proxy
+## Configurar Provider no OpenClaw
 
-```powershell
-acc status        # Status
-acc restart       # Reiniciar
-acc accounts list # Listar contas
-acc accounts add  # Adicionar
-acc ui            # Dashboard web
-```
+Ver o arquivo de referência: `config/openclaw-provider.json`
 
-## Pré-requisitos
-- `antigravity-claude-proxy` instalado (`npm install -g`)
-- Proxy rodando em `http://127.0.0.1:8080`
-- Para delegar código: `agy` no PATH + Antigravity IDE aberto
-- Para dashboard + account mgmt: proxy precisa estar respondendo
+Modelos disponíveis:
+- `antigravity-proxy/claude-opus-4-6-thinking` (200K ctx)
+- `antigravity-proxy/claude-sonnet-4-6` (200K ctx)
+- `antigravity-proxy/gemini-3.1-pro-high` (1M ctx)
+- `antigravity-proxy/gemini-3-flash` (1M ctx)
 
-## Notas de Segurança
-- **NUNCA** inclua tokens, API keys ou emails de contas em arquivos públicos
-- Use contas Google descartáveis, não a principal
-- O proxy só deve escutar em 127.0.0.1, nunca em 0.0.0.0
+## Troubleshooting
+
+- Proxy offline → `acc restart`
+- Token expirado → `acc accounts add`
+- Porta ocupada → `PORT=3000 acc start`
+- Reset completo → `acc stop` + deletar `accounts.json` + `acc start` + `acc accounts add`
